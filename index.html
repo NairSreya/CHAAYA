@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CHAAYA - Aditya L1 CME Monitor</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0f0f23 0%, #1a1a3e 50%, #2d1b69 100%);
+            color: white;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .stars {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .star {
+            position: absolute;
+            width: 2px;
+            height: 2px;
+            background: white;
+            border-radius: 50%;
+            animation: twinkle 2s infinite;
+        }
+
+        @keyframes twinkle {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 1; }
+        }
+
+        .container {
+            position: relative;
+            z-index: 2;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 30px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .header h1 {
+            font-size: 3.5em;
+            margin-bottom: 10px;
+            background: linear-gradient(45deg, #ff6b6b, #ffd93d, #6bcf7f, #4ecdc4);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-shadow: 0 0 30px rgba(255, 107, 107, 0.5);
+        }
+
+        .header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+
+        .alert-system {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            max-width: 400px;
+        }
+
+        .alert {
+            padding: 15px 20px;
+            border-radius: 10px;
+            margin-bottom: 10px;
+            border-left: 5px solid;
+            backdrop-filter: blur(10px);
+            animation: slideIn 0.5s ease-out;
+        }
+
+        .alert.critical {
+            background: rgba(255, 0, 0, 0.2);
+            border-left-color: #ff0000;
+            box-shadow: 0 0 20px rgba(255, 0, 0, 0.3);
+        }
+
+        .alert.warning {
+            background: rgba(255, 165, 0, 0.2);
+            border-left-color: #ffa500;
+            box-shadow: 0 0 20px rgba(255, 165, 0, 0.3);
+        }
+
+        .alert.info {
+            background: rgba(0, 150, 255, 0.2);
+            border-left-color: #0096ff;
+            box-shadow: 0 0 20px rgba(0, 150, 255, 0.3);
+        }
+
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        .dashboard {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 25px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.3);
+        }
+
+        .card h3 {
+            margin-bottom: 20px;
+            font-size: 1.5em;
+            color: #4ecdc4;
+        }
+
+        .cme-status {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .status-item {
+            text-align: center;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .status-value {
+            font-size: 2em;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .status-label {
+            font-size: 0.9em;
+            opacity: 0.8;
+        }
+
+        .weak { color: #4ecdc4; }
+        .moderate { color: #ffd93d; }
+        .strong { color: #ff6b6b; }
+
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4ecdc4, #ffd93d, #ff6b6b);
+            transition: width 0.5s ease;
+            border-radius: 10px;
+        }
+
+        .parameter-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+        }
+
+        .parameter-item {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 15px;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .parameter-label {
+            font-size: 0.9em;
+            opacity: 0.8;
+            margin-bottom: 5px;
+        }
+
+        .parameter-value {
+            font-size: 1.4em;
+            font-weight: bold;
+            color: #4ecdc4;
+        }
+
+        .time-display {
+            font-size: 1.8em;
+            font-weight: bold;
+            text-align: center;
+            margin: 20px 0;
+            color: #ffd93d;
+        }
+
+        .chart-container {
+            height: 250px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            margin: 20px 0;
+            position: relative;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .xray-chart {
+            width: 100%;
+            height: 100%;
+            position: relative;
+        }
+
+        .chart-grid {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                linear-gradient(rgba(255, 255, 255, 0.1) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.1) 1px, transparent 1px);
+            background-size: 40px 25px;
+        }
+
+        .chart-line {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            height: calc(100% - 40px);
+            width: calc(100% - 40px);
+            background: linear-gradient(transparent 60%, rgba(255, 107, 107, 0.3) 70%, rgba(255, 107, 107, 0.6) 100%);
+            clip-path: polygon(
+                0% 100%, 0% 85%, 5% 80%, 10% 75%, 15% 70%, 20% 65%, 25% 60%, 30% 55%, 
+                35% 50%, 40% 45%, 45% 40%, 50% 35%, 55% 30%, 60% 25%, 65% 20%, 70% 15%, 
+                75% 10%, 80% 8%, 85% 6%, 90% 5%, 95% 4%, 100% 3%, 100% 100%
+            );
+            animation: pulseGlow 2s ease-in-out infinite;
+        }
+
+        @keyframes pulseGlow {
+            0%, 100% { filter: brightness(1); }
+            50% { filter: brightness(1.2); }
+        }
+
+        .chart-labels {
+            position: absolute;
+            bottom: 5px;
+            left: 20px;
+            right: 20px;
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.8em;
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        .chart-y-labels {
+            position: absolute;
+            left: 5px;
+            top: 20px;
+            bottom: 25px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            font-size: 0.8em;
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        .chart-title {
+            position: absolute;
+            top: 5px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.9em;
+            color: #ffd93d;
+            font-weight: bold;
+        }
+
+        .instrument-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+        }
+
+        .instrument-item {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 15px;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            text-align: center;
+        }
+
+        .instrument-name {
+            font-size: 0.9em;
+            margin-bottom: 5px;
+            color: #4ecdc4;
+        }
+
+        .instrument-status {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #4ecdc4;
+        }
+
+        .footer {
+            text-align: center;
+            padding: 20px;
+            margin-top: 30px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            opacity: 0.8;
+        }
+
+        @media (max-width: 768px) {
+            .dashboard {
+                grid-template-columns: 1fr;
+            }
+            
+            .header h1 {
+                font-size: 2.5em;
+            }
+            
+            .parameter-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .instrument-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="stars" id="stars"></div>
+    
+    <div class="alert-system" id="alertSystem">
+        <!-- Alerts will be dynamically added here -->
+    </div>
+
+    <div class="container">
+        <div class="header">
+            <h1>CHAAYA</h1>
+            <p>CME Hazard Alert And Yield Analysis</p>
+            <p>Real-time CME Monitoring from Aditya L1</p>
+        </div>
+
+        <div class="dashboard">
+            <!-- CME Detection Status -->
+            <div class="card">
+                <h3>🌟 CME Detection Status</h3>
+                <div class="cme-status">
+                    <div class="status-item">
+                        <div class="status-value weak" id="weakCount">0</div>
+                        <div class="status-label">Weak CMEs</div>
+                    </div>
+                    <div class="status-item">
+                        <div class="status-value moderate" id="moderateCount">0</div>
+                        <div class="status-label">Moderate CMEs</div>
+                    </div>
+                    <div class="status-item">
+                        <div class="status-value strong" id="strongCount">0</div>
+                        <div class="status-label">Strong CMEs</div>
+                    </div>
+                </div>
+                <div class="time-display" id="currentTime">12:34:56 UTC</div>
+            </div>
+
+            <!-- Earth Impact Estimation -->
+            <div class="card">
+                <h3>🌍 Earth Impact Estimation</h3>
+                <div id="cmeImpactSection" style="display: none;">
+                    <div class="parameter-item">
+                        <div class="parameter-label">CME Arrival Time</div>
+                        <div class="parameter-value" id="cmeArrival">--</div>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="arrivalProgress" style="width: 0%;"></div>
+                    </div>
+                    <div class="parameter-item">
+                        <div class="parameter-label">Impact Severity</div>
+                        <div class="parameter-value" id="impactSeverity">--</div>
+                    </div>
+                    <div class="parameter-item">
+                        <div class="parameter-label">Confidence Level</div>
+                        <div class="parameter-value" id="confidenceLevel">--</div>
+                    </div>
+                </div>
+                <div id="noActivitySection">
+                    <div class="parameter-item" style="text-align: center; padding: 40px;">
+                        <div class="parameter-label">Status</div>
+                        <div class="parameter-value" style="color: #4ecdc4;">No Active CME Detected</div>
+                        <div style="margin-top: 15px; opacity: 0.7;">System monitoring for new events...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SOLEX Soft X-ray Light Curve -->
+            <div class="card">
+                <h3>☀️ SOLEX Soft X-ray Light Curve</h3>
+                <div class="chart-container">
+                    <div class="chart-title">Soft X-ray Flux (1-8 Å)</div>
+                    <div class="chart-grid"></div>
+                    <div class="chart-line"></div>
+                    <div class="chart-y-labels">
+                        <span>10⁻³</span>
+                        <span>10⁻⁴</span>
+                        <span>10⁻⁵</span>
+                        <span>10⁻⁶</span>
+                        <span>10⁻⁷</span>
+                        <span>10⁻⁸</span>
+                    </div>
+                    <div class="chart-labels">
+                        <span>00:00</span>
+                        <span>04:00</span>
+                        <span>08:00</span>
+                        <span>12:00</span>
+                        <span>16:00</span>
+                        <span>20:00</span>
+                        <span>24:00</span>
+                    </div>
+                </div>
+                <div class="parameter-grid">
+                    <div class="parameter-item">
+                        <div class="parameter-label">Current Flux</div>
+                        <div class="parameter-value" id="currentFlux">2.1×10⁻⁶ W/m²</div>
+                    </div>
+                    <div class="parameter-item">
+                        <div class="parameter-label">Flare Class</div>
+                        <div class="parameter-value" id="flareClass">A-Class</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Solar Wind Parameters -->
+            <div class="card">
+                <h3>🌊 Solar Wind Parameters</h3>
+                <div class="parameter-grid">
+                    <div class="parameter-item">
+                        <div class="parameter-label">Solar Wind Speed</div>
+                        <div class="parameter-value" id="windSpeed">432 km/s</div>
+                    </div>
+                    <div class="parameter-item">
+                        <div class="parameter-label">Particle Density</div>
+                        <div class="parameter-value" id="density">8.7 p/cm³</div>
+                    </div>
+                    <div class="parameter-item">
+                        <div class="parameter-label">Magnetic Field</div>
+                        <div class="parameter-value" id="magneticField">5.2 nT</div>
+                    </div>
+                    <div class="parameter-item">
+                        <div class="parameter-label">Temperature</div>
+                        <div class="parameter-value" id="temperature">1.2M K</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Particle Flux Data -->
+            <div class="card">
+                <h3>⚡ Particle Flux Measurements</h3>
+                <div class="parameter-grid">
+                    <div class="parameter-item">
+                        <div class="parameter-label">Proton Flux</div>
+                        <div class="parameter-value" id="protonFlux">1.2×10⁶ /cm²/s</div>
+                    </div>
+                    <div class="parameter-item">
+                        <div class="parameter-label">Electron Flux</div>
+                        <div class="parameter-value" id="electronFlux">3.4×10⁷ /cm²/s</div>
+                    </div>
+                    <div class="parameter-item">
+                        <div class="parameter-label">Alpha Particle Flux</div>
+                        <div class="parameter-value" id="alphaFlux">2.1×10⁵ /cm²/s</div>
+                    </div>
+                    <div class="parameter-item">
+                        <div class="parameter-label">Heavy Ion Flux</div>
+                        <div class="parameter-value" id="heavyIonFlux">5.8×10⁴ /cm²/s</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Instrument Status -->
+            <div class="card">
+                <h3>🔬 Instrument Status</h3>
+                <div class="instrument-grid">
+                    <div class="instrument-item">
+                        <div class="instrument-name">PAPA</div>
+                        <div class="instrument-status">ACTIVE</div>
+                    </div>
+                    <div class="instrument-item">
+                        <div class="instrument-name">ASPEX</div>
+                        <div class="instrument-status">ACTIVE</div>
+                    </div>
+                    <div class="instrument-item">
+                        <div class="instrument-name">MAG</div>
+                        <div class="instrument-status">ACTIVE</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>&copy; 2025 CHAAYA - Indian Space Research Organisation (ISRO)</p>
+            <p>Real-time space weather monitoring for Earth's protection</p>
+        </div>
+    </div>
+
+    <script>
+        // Create animated stars
+        function createStars() {
+            const starsContainer = document.getElementById('stars');
+            for (let i = 0; i < 100; i++) {
+                const star = document.createElement('div');
+                star.className = 'star';
+                star.style.left = Math.random() * 100 + '%';
+                star.style.top = Math.random() * 100 + '%';
+                star.style.animationDelay = Math.random() * 2 + 's';
+                starsContainer.appendChild(star);
+            }
+        }
+
+        // Audio alert system
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        
+        function createBeep(frequency, duration, type = 'sine') {
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            oscillator.frequency.value = frequency;
+            oscillator.type = type;
+            
+            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
+            
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + duration);
+        }
+        
+        function playAlertSound(alertType) {
+            if (audioContext.state === 'suspended') {
+                audioContext.resume();
+            }
+            
+            switch(alertType) {
+                case 'info':
+                    createBeep(800, 0.3);
+                    break;
+                case 'warning':
+                    createBeep(1000, 0.2);
+                    setTimeout(() => createBeep(1000, 0.2), 300);
+                    break;
+                case 'critical':
+                    createBeep(1200, 0.15);
+                    setTimeout(() => createBeep(1200, 0.15), 200);
+                    setTimeout(() => createBeep(1200, 0.15), 400);
+                    break;
+            }
+        }
+
+        // Track active CME detection state
+        let activeCMEDetected = false;
+        
+        function updateTime() {
+            const now = new Date();
+            const timeString = now.toUTCString().split(' ')[4];
+            document.getElementById('currentTime').textContent = timeString + ' UTC';
+        }
+
+        // Update regular data
+        function updateData() {
+            // Update solar wind parameters
+            document.getElementById('windSpeed').textContent = (300 + Math.random() * 500).toFixed(0) + ' km/s';
+            document.getElementById('density').textContent = (5 + Math.random() * 10).toFixed(1) + ' p/cm³';
+            document.getElementById('magneticField').textContent = (2 + Math.random() * 8).toFixed(1) + ' nT';
+            document.getElementById('temperature').textContent = (0.8 + Math.random() * 1.5).toFixed(1) + 'M K';
+
+            // Update particle flux
+            document.getElementById('protonFlux').textContent = (1 + Math.random() * 3).toFixed(1) + '×10⁶ /cm²/s';
+            document.getElementById('electronFlux').textContent = (2 + Math.random() * 4).toFixed(1) + '×10⁷ /cm²/s';
+            document.getElementById('alphaFlux').textContent = (1 + Math.random() * 3).toFixed(1) + '×10⁵ /cm²/s';
+            document.getElementById('heavyIonFlux').textContent = (3 + Math.random() * 6).toFixed(1) + '×10⁴ /cm²/s';
+
+            // Update X-ray data
+            const fluxValue = (1 + Math.random() * 5).toFixed(1);
+            const fluxPower = Math.floor(Math.random() * 3) + 6;
+            document.getElementById('currentFlux').textContent = `${fluxValue}×10⁻${fluxPower} W/m²`;
+            
+            const flareClasses = ['A-Class', 'B-Class', 'C-Class', 'M-Class', 'X-Class'];
+            const flareClass = flareClasses[Math.floor(Math.random() * flareClasses.length)];
+            document.getElementById('flareClass').textContent = flareClass;
+
+            // Update CME impact data if active
+            if (activeCMEDetected) {
+                const hours = Math.floor(Math.random() * 48);
+                const minutes = Math.floor(Math.random() * 60);
+                document.getElementById('cmeArrival').textContent = `${hours}h ${minutes}m`;
+                
+                const progress = Math.random() * 100;
+                document.getElementById('arrivalProgress').style.width = progress + '%';
+                
+                document.getElementById('confidenceLevel').textContent = (70 + Math.random() * 30).toFixed(0) + '%';
+            }
+        }
+
+        // Function to activate CME detection
+        function activateCMEDetection(severity) {
+            activeCMEDetected = true;
+            document.getElementById('cmeImpactSection').style.display = 'block';
+            document.getElementById('noActivitySection').style.display = 'none';
+            
+            // Set impact severity
+            const impactElement = document.getElementById('impactSeverity');
+            impactElement.textContent = severity;
+            impactElement.className = 'parameter-value ' + severity.toLowerCase();
+            
+            // Update CME counts based on severity
+            if (severity === 'Weak') {
+                document.getElementById('weakCount').textContent = '1';
+                document.getElementById('moderateCount').textContent = '0';
+                document.getElementById('strongCount').textContent = '0';
+            } else if (severity === 'Moderate') {
+                document.getElementById('weakCount').textContent = '0';
+                document.getElementById('moderateCount').textContent = '1';
+                document.getElementById('strongCount').textContent = '0';
+            } else if (severity === 'Strong') {
+                document.getElementById('weakCount').textContent = '0';
+                document.getElementById('moderateCount').textContent = '0';
+                document.getElementById('strongCount').textContent = '1';
+            }
+            
+            // Initial data update
+            const hours = Math.floor(Math.random() * 48);
+            const minutes = Math.floor(Math.random() * 60);
+            document.getElementById('cmeArrival').textContent = `${hours}h ${minutes}m`;
+            document.getElementById('arrivalProgress').style.width = (Math.random() * 100) + '%';
+            document.getElementById('confidenceLevel').textContent = (70 + Math.random() * 30).toFixed(0) + '%';
+        }
+
+        // Function to deactivate CME detection
+        function deactivateCMEDetection() {
+            activeCMEDetected = false;
+            document.getElementById('cmeImpactSection').style.display = 'none';
+            document.getElementById('noActivitySection').style.display = 'block';
+            
+            // Reset CME counts
+            document.getElementById('weakCount').textContent = '0';
+            document.getElementById('moderateCount').textContent = '0';
+            document.getElementById('strongCount').textContent = '0';
+        }
+
+        // Alert system
+        function showAlert(type, message) {
+            const alertSystem = document.getElementById('alertSystem');
+            const alert = document.createElement('div');
+            alert.className = `alert ${type}`;
+            alert.innerHTML = `
+                <strong>${type.toUpperCase()}:</strong> ${message}
+                <button onclick="this.parentElement.remove()" style="float: right; background: none; border: none; color: white; cursor: pointer;">×</button>
+            `;
+            alertSystem.appendChild(alert);
+            
+            // Play alert sound
+            playAlertSound(type);
+
+            // Auto-remove alert after 10 seconds
+            setTimeout(() => {
+                if (alert.parentElement) {
+                    alert.remove();
+                }
+            }, 10000);
+        }
+
+        // Simulate CME alerts
+        function simulateAlerts() {
+            const alertTypes = ['info', 'warning', 'critical'];
+            const messages = {
+                info: { text: 'Weak CME detected by Aditya L1 - Monitoring Earth approach', severity: 'Weak' },
+                warning: { text: 'Moderate CME detected - Estimated Earth arrival in 24-48 hours', severity: 'Moderate' },
+                critical: { text: 'Strong CME detected - High probability of geomagnetic storm', severity: 'Strong' }
+            };
+
+            const randomType = alertTypes[Math.floor(Math.random() * alertTypes.length)];
+            const alertData = messages[randomType];
+            
+            // Show alert and activate CME detection
+            showAlert(randomType, alertData.text);
+            activateCMEDetection(alertData.severity);
+            
+            // Automatically deactivate after some time
+            setTimeout(() => {
+                deactivateCMEDetection();
+                showAlert('info', 'CME event concluded - System returned to monitoring mode');
+            }, 45000); // Deactivate after 45 seconds
+        }
+
+        // Initialize the application
+        function init() {
+            createStars();
+            updateTime();
+            updateData();
+            
+            // Start with no CME detection
+            deactivateCMEDetection();
+            
+            // Update time every second
+            setInterval(updateTime, 1000);
+            
+            // Update data every 3 seconds
+            setInterval(updateData, 3000);
+            
+            // Show random alerts every 20 seconds
+            setInterval(simulateAlerts, 20000);
+            
+            // Show initial alert
+            setTimeout(() => {
+                showAlert('info', 'CHAAYA system online - All instruments operational');
+            }, 2000);
+            
+            // Enable audio context on first user interaction
+            document.addEventListener('click', function enableAudio() {
+                if (audioContext.state === 'suspended') {
+                    audioContext.resume();
+                }
+                document.removeEventListener('click', enableAudio);
+            }, { once: true });
+        }
+
+        // Start the application
+        init();
+    </script>
+</body>
+</html>
